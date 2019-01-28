@@ -4,36 +4,39 @@ from .models import Cart, CartItem
 from django.core.exceptions import ObjectDoesNotExist
 import stripe
 from django.conf import settings
-from order.models import Order,OrderItem
+from order.models import Order, OrderItem
+from django.template.loader import get_template
+from django.core.mail import EmailMessage
+
 
 def _cart_id(request):
-    cart = request.session.session_key
-    if not cart:
-        cart = request.session.create()
-    return cart
+	cart = request.session.session_key
+	if not cart:
+		cart = request.session.create()
+	return cart
 
 def add_cart(request, product_id):
-    product = Product.objects.get(id=product_id)
-    try:
-        cart = Cart.objects.get(cart_id=_cart_id(request))
-    except Cart.DoesNotExist:
-        cart = Cart.objects.create(
-            cart_id=_cart_id(request)
-        )
-        cart.save(),
-    try:
-        cart_item = CartItem.objects.get(product=product, cart=cart)
-        if cart_item.quantity < cart_item.product.stock:
-            cart_item.quantity +=1
-        cart_item.save()
-    except CartItem.DoesNotExist:
-        cart_item = CartItem.objects.create(
-            product= product,
-            quantity = 1,
-            cart = cart
-        )
-        cart_item.save()
-    return redirect('cart:cart_detail')
+	product = Product.objects.get(id=product_id)
+	try:
+		cart = Cart.objects.get(cart_id=_cart_id(request))
+	except Cart.DoesNotExist:
+		cart = Cart.objects.create(
+				cart_id = _cart_id(request)
+			)
+		cart.save()
+	try:
+		cart_item = CartItem.objects.get(product=product, cart=cart)
+		if cart_item.quantity < cart_item.product.stock:
+			cart_item.quantity += 1
+		cart_item.save()
+	except CartItem.DoesNotExist:
+		cart_item = CartItem.objects.create(
+					product = product,
+					quantity = 1,
+					cart = cart
+			)
+		cart_item.save()
+	return redirect('cart:cart_detail')
 
 def cart_detail(request, total=0, counter=0, cart_items = None):
 	try:
@@ -89,6 +92,7 @@ def cart_detail(request, total=0, counter=0, cart_items = None):
 						shippingAddress1 = shippingAddress1,
 						shippingCity = shippingcity,
 						shippingPostcode = shippingPostcode,
+						shippingCountry = shippingCountry
 					)
 				order_details.save()
 				for order_item in cart_items:
@@ -106,13 +110,13 @@ def cart_detail(request, total=0, counter=0, cart_items = None):
 					order_item.delete()
 					'''The terminal will print this message when the order is saved'''
 					print('The order has been created')
-				try:
-					'''Calling the sendEmail function'''
-					sendEmail(order_details.id)
-					print('The order email has been sent to the customer.')
-				except IOError as e:
-					return e
-				return redirect('order:thanks', order_details.id)
+				# try:
+				# 	'''Calling the sendEmail function'''
+				# 	sendEmail(order_details.id)
+				# 	print('The order email has been sent to the customer.')
+				# except IOError as e:
+				# 	return e
+				return redirect('order:thanks', order_details.id) #Still trying to understand this code 1/28 it seems the id gets passed in, but why the : ?
 			except ObjectDoesNotExist:
 				pass
 		except stripe.error.CardError as e:
@@ -121,19 +125,19 @@ def cart_detail(request, total=0, counter=0, cart_items = None):
 
 
 def cart_remove(request, product_id):
-    cart = Cart.objects.get(cart_id=_cart_id(request))
-    product = get_object_or_404(Product, id=product_id)
-    cart_item = CartItem.objects.get(product=product, cart=cart)
-    if cart_item.quantity > 1:
-        cart_item.quantity -= 1
-        cart_item.save()
-    else:
-        cart_item.delete()
-    return redirect('cart:cart_detail')
+	cart = Cart.objects.get(cart_id=_cart_id(request))
+	product = get_object_or_404(Product, id=product_id)
+	cart_item = CartItem.objects.get(product=product, cart=cart)
+	if cart_item.quantity > 1:
+		cart_item.quantity -= 1
+		cart_item.save()
+	else:
+		cart_item.delete()
+	return redirect('cart:cart_detail')
 
 def full_remove(request, product_id):
-    cart = Cart.objects.get(cart_id=_cart_id(request))
-    product = get_object_or_404(Product, id=product_id)
-    cart_item = CartItem.objects.get(product=product, cart=cart)
-    cart_item.delete()
-    return redirect('cart:cart_detail')
+	cart = Cart.objects.get(cart_id=_cart_id(request))
+	product = get_object_or_404(Product, id=product_id)
+	cart_item = CartItem.objects.get(product=product, cart=cart)
+	cart_item.delete()
+	return redirect('cart:cart_detail')
